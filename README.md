@@ -1,7 +1,7 @@
 # Presentation Link:
 
 # Author information:
-This software was written by Elise, Micah, and Brevin and interfaces with GPT-4o mini, a creation of OpenAI.
+This software was written by Elise Reynolds, Micah Howard, and Brevin Tating and interfaces with GPT-4o mini, a creation of OpenAI.
 
 # License information:
 This software is released under GNU General Public License v3.0
