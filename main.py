@@ -1,18 +1,12 @@
 from openai import OpenAI
 from bs4 import BeautifulSoup
 from time import sleep
+from os import environ
 import requests
 
 def main():
-    client = OpenAI()
-
-    # System prompt which defines what behavior we want from gpt-4o-mini
-    conversation = [
-                    {"role": "system", "content": "You are a gift idea giving assistant who takes in characteristics about a recipient and responds with five gift ideas in a comma-delimited list without categories or enumeration."},
-    ]
-
     # A url we use to return Amazon search results later on.
-    url = "https://www.searchapi.io/api/v1/search?api_key=KYq3CstXu71Bw5nBtaDUhixU"
+    url = "https://www.searchapi.io/api/v1/search?api_key=" + environ['SEARCHAPI_API_KEY']
 
     print("Hello! My name is Elfie and I am your gift helper for the holidays! ")
     while True:
@@ -20,74 +14,44 @@ def main():
         user_input = input("Please enter in who you want to get a gift for, and the characteristics of that person. :)\nEnter 'exit' to exit.\n")
         if user_input.lower() == 'exit':
             break
-        conversation.append({"role": "user", "content": user_input})
-        
-        # Creates response choices from system prompt and user input
-        response = client.chat.completions.create(
-            model="gpt-4o-mini", 
-            messages = conversation
-        )
-        
-        # Takes the first choice response's content. Ignores the rest.
-        response_message = response.choices[0].message.content
-
-        conversation.append({"role": "assistant", "content": response_message})
-        
-        # Since the bot is returning comma delimited lists in strings, we can actual lists by splitting at the comma
-        response_list = response_message.split(',')
+       
+        response_list = generate_gift_ideas(user_input)
 
         print("Thanks! Here are the gift ideas!\n")
-
         print("-------------------------------------------------------------------")
 
+        # Loop iterates through each response and searchs for them on Amazon
         for i in range(len(response_list)):
             # Eliminates extra whitespace at start of string
             response_list[i] = response_list[i].strip()
-            print(f"Gift idea {i+1}: {response_list[i]}\n")
+            print(f"Gift idea {i+1}: \"{response_list[i].title()}\"\n")
             params = {
                 "engine": "amazon_search",
                 "q": response_list[i]
             }
             
-            # Gets the url with amazon search and the gift idea from the list
-            search_response = get_response(url, params)
-            if search_response == None:
+            results_of_search = amazon_search_response(url, params)
+            # Breaks out of loop if there is no search response
+            if results_of_search == None:
+                print("Error: no search response!")
                 break
-            else:
-                search_response = search_response.json()
-                
-            # Gets the link to the product page, which will be used to find a title
-            product_link = search_response['organic_results'][i]['link']
-            product_link = link.rsplit('ref')[0]
             
-            # Gets the html of the product page
-            product_response = get_response(product_link)
-
-            # Enforces politness
-            sleep(1)
-
-            # Parses the page and grabs the title
-            soup = BeautifulSoup(product_response.text, 'html.parser')
-            title = soup.title.string
-
-            # Removes 'Amazon.com :' from title
-            title = title.rsplit(': ')[1]
+            product_name, product_price, product_link = results_of_search
             
-            # Simplifies common title pattern
-            title = title.rsplit('|')[0]
-
+            # Outputs to user
             print("Here is a product I found that I think best fits the gift idea!\n")
-            # 'organic_results' gets the results of the search from the JSON object in response
-            print("Name: ", title)
-            print("Price", response['organic_results'][i]['price'])
-            print("Link", response['organic_results'][i]['link'])
-            print()
-            print("-------------------------------------------------------------------")
+            print("Name: ", product_name)
+            print("Price: ", product_price)
+            print("Link: ", product_link)
+            print("\n-------------------------------------------------------------------")
 
-
+# This function essentially just makes requests.get(url) deal with errors for this program
 def get_response(url, params = None):
     try:
-        response = requests.get(url, params = params) 
+        if params == None:
+            response = requests.get(url)
+        else:
+            response = requests.get(url, params = params) 
         # Raises an error if the HTTP code is an eror
         response.raise_for_status()
         return response
@@ -95,6 +59,65 @@ def get_response(url, params = None):
         print('HTTP Error')
         print(errh.args[0])
         return None
-     
+
+# This function takes in a url and paramaters and outputs the name, price, and link of the first 'organic' result on Amazon
+def amazon_search_response(url, params):
+    # Gets the url with amazon search and the gift idea from the list
+    search_response = get_response(url, params)
+    if search_response == None:
+        return None
+    else:
+        search_response = search_response.json()
+        
+    # Gets the first non-sponsored, or 'organic', search result for the query
+    first_organic_search_result = search_response['organic_results'][0]
+    
+    # Gets the link to the product page, which will shortened by chopping off the tail of the URL
+    product_link = first_organic_search_result['link']
+    product_link = product_link.rsplit('ref')[0]
+    
+    # Amazon sometimes returns a 'title' attribute for a product, but this is inconsistent
+    # So we get the product name by taking it from the link
+    product_name = product_link.rsplit('.com/')[1]
+    product_name = product_name.rsplit('/dp')[0]
+    product_name = product_name.replace('-', ' ')
+    
+    # Amazon does not list a price for items that are currently out of stock, 
+    # santas may want to wait for an item to come back in stock, so these results should not be thrown out
+    try:
+        product_price = first_organic_search_result['price']
+    except:
+        product_price = 'Price not found'
+    
+    return product_name, product_price, product_link
+
+# This function is what interfaces with gpt-4o-mini. 
+# It outputs a list of gift ideas generated by gpt-4o-mini through our system prompt.
+def generate_gift_ideas(user_input):
+    client = OpenAI()
+
+    # System prompt which defines what behavior we want from gpt-4o-mini
+    conversation = [
+                    {"role": "system", "content": """You are a gift idea giving 
+                    assistant who takes in characteristics about a recipient and 
+                    responds with five gift ideas, specific enough to be searched 
+                    on Amazon, in a comma-delimited list without categories or enumeration."
+                    """,}
+    ]   
+    conversation.append({"role": "user", "content": user_input})
+        
+    # Creates response choices from system prompt and user input
+    response = client.chat.completions.create(
+        model="gpt-4o-mini", 
+        messages = conversation
+    )
+    
+    # Takes the first choice response's content. Ignores the rest.
+    response_message = response.choices[0].message.content
+
+    conversation.append({"role": "assistant", "content": response_message})
+    
+    # Since the bot is returning comma delimited lists in strings, we can actual lists by splitting at the comma
+    return response_message.split(',')
 
 main()
