@@ -1,11 +1,11 @@
 from openai import OpenAI
 from time import sleep
-from os import environ
+from os import getenv
 import requests
 
 def main():
     # A url we use to return Amazon search results later on.
-    url = "https://www.searchapi.io/api/v1/search?api_key=" + environ['SEARCHAPI_API_KEY']
+    url = "https://www.searchapi.io/api/v1/search?api_key=" + getenv('SEARCHAPI_API_KEY')
 
     print("Hello! My name is Elfie and I am your gift helper for the holidays! ")
     while True:
