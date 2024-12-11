@@ -8,7 +8,7 @@ This software was written by Elise Reynolds, Micah Howard, and Brevin Tating and
 
 # License information:
 
-This software is released under GNU General Public License v3.0
+This software is released under GNU General Public License v3.0, which is included in the file 'LICENSE'.
 
 # User Manual:
 
@@ -26,6 +26,8 @@ Once the dependencies are installed and the API keys are in the enviorment varia
 # Success Criteria
 
 Our success criteria is that Santa Helper should be able to take information about a gift recipient (age, gender, hobbies, interests, and shared experiences) and respond with gift ideas that are relevant, fun, and thoughtful, so as to inspire the user Santa to give the best gifts possible.
+
+Evaluated by ChatGPT on a scale from 0-10, our program got a 7.8.
 
 # Citations:
 
