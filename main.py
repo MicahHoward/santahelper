@@ -1,5 +1,4 @@
 from openai import OpenAI
-from bs4 import BeautifulSoup
 from time import sleep
 from os import environ
 import requests
